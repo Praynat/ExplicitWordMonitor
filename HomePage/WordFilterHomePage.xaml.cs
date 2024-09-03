@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows;
 using Gma.System.MouseKeyHook;
 using System.Windows.Forms;
+using System.Text.RegularExpressions;
 
 namespace ExplicitWordMonitor.HomePage
 {
@@ -17,6 +18,10 @@ namespace ExplicitWordMonitor.HomePage
         private List<string> UserAddedWords = new List<string>();
         public string _password = "1234";
         private IntPtr _lastWindowHandle = IntPtr.Zero;
+        private System.Timers.Timer _typingTimer;
+        private const double TypingDelay = 1000;
+        private readonly object _lock = new object();
+
 
         public string Password
         {
@@ -31,6 +36,10 @@ namespace ExplicitWordMonitor.HomePage
             _globalHook = Hook.GlobalEvents();
             _globalHook.KeyPress += OnKeyPress;
             UpdateComboBox();
+
+            _typingTimer = new System.Timers.Timer(TypingDelay);
+            _typingTimer.Elapsed += TypingTimer_Elapsed;
+            _typingTimer.AutoReset = false;
         }
 
 
@@ -139,50 +148,87 @@ namespace ExplicitWordMonitor.HomePage
         }
 
 
-        private void OnKeyPress(object sender, KeyPressEventArgs e)
+        private async void OnKeyPress(object sender, KeyPressEventArgs e)
         {
             var currentWindowHandle = GetForegroundWindow();
 
-            // Vérifier si l'utilisateur a changé de fenêtre
-            if (currentWindowHandle != _lastWindowHandle)
+            lock (_lock)
             {
-                _lastWindowHandle = currentWindowHandle;
-                _inputByWindow[currentWindowHandle] = ""; // Réinitialiser la séquence de la nouvelle fenêtre
-            }
-
-            if (!_inputByWindow.ContainsKey(currentWindowHandle))
-            {
-                _inputByWindow[currentWindowHandle] = "";
-            }
-
-            _inputByWindow[currentWindowHandle] += e.KeyChar;
-
-            foreach (var word in DefaultWords)
-            {
-                if (_inputByWindow[currentWindowHandle].EndsWith(word, StringComparison.OrdinalIgnoreCase))
+                if (!_inputByWindow.ContainsKey(currentWindowHandle))
                 {
-                    CloseActiveApplication();
                     _inputByWindow[currentWindowHandle] = "";
-                    break;
                 }
-            }
 
-            foreach (var word in UserAddedWords)
-            {
-                if (_inputByWindow[currentWindowHandle].EndsWith(word, StringComparison.OrdinalIgnoreCase))
+                _inputByWindow[currentWindowHandle] += e.KeyChar;
+
+                if (_inputByWindow[currentWindowHandle].Length > 100)
                 {
-                    CloseActiveApplication();
-                    _inputByWindow[currentWindowHandle] = "";
-                    break;
+                    _inputByWindow[currentWindowHandle] = _inputByWindow[currentWindowHandle].Substring(_inputByWindow[currentWindowHandle].Length - 10);
                 }
+
+                _typingTimer.Stop();
             }
 
-            if (_inputByWindow[currentWindowHandle].Length > 100)
+            await Task.Delay(1000);
+
+            lock (_lock)
             {
-                _inputByWindow[currentWindowHandle] = _inputByWindow[currentWindowHandle].Substring(_inputByWindow[currentWindowHandle].Length - 10);
+                
+                foreach (var word in DefaultWords)
+                {
+                    if (_inputByWindow[currentWindowHandle].EndsWith(word, StringComparison.OrdinalIgnoreCase))
+                    {
+                        CloseActiveApplication();
+                        _inputByWindow[currentWindowHandle] = "";
+                        return;
+                    }
+                }
+
+                foreach (var word in UserAddedWords)
+                {
+                    if (_inputByWindow[currentWindowHandle].EndsWith(word, StringComparison.OrdinalIgnoreCase))
+                    {
+                        CloseActiveApplication();
+                        _inputByWindow[currentWindowHandle] = "";
+                        return;
+                    }
+                }
             }
         }
 
+        private void TypingTimer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
+        {
+            Dispatcher.Invoke(() => EvaluateInput());
+        }
+        private async void EvaluateInput()
+        {
+            var currentWindowHandle = GetForegroundWindow();
+            await Task.Delay(1000);
+            lock (_lock)
+            {
+                if (_inputByWindow.ContainsKey(currentWindowHandle))
+                {
+                    foreach (var word in DefaultWords.Concat(UserAddedWords))
+                    {
+                        string pattern = $@"\b{Regex.Escape(word)}\b";
+                        if (Regex.IsMatch(_inputByWindow[currentWindowHandle], pattern, RegexOptions.IgnoreCase))
+                        {
+                            CloseActiveApplication();
+                            _inputByWindow[currentWindowHandle] = "";
+                            break;
+                        }
+                    }
+                    if (_inputByWindow[currentWindowHandle].Length > 100)
+                    {
+                        _inputByWindow[currentWindowHandle] = _inputByWindow[currentWindowHandle].Substring(_inputByWindow[currentWindowHandle].Length - 10);
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine($"Key {currentWindowHandle} not found in _inputByWindow dictionary.");
+                }
+            }
+        }
 
 
         private void CloseActiveApplication()

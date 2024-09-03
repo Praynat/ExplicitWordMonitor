@@ -18,7 +18,6 @@ namespace ExplicitWordMonitor
             this.Closing += MainWindow_Closing;
 
             bool dontShow = DontShowAgain();
-            MessageBox.Show(dontShow.ToString());
             // Hide the popup if the user has chosen "Don't show again"
             if (dontShow)
             {
