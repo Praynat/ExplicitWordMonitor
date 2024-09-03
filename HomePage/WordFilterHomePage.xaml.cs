@@ -15,18 +15,21 @@ namespace ExplicitWordMonitor.HomePage
         private Dictionary<IntPtr, string> _inputByWindow = new Dictionary<IntPtr, string>();
         private List<string> DefaultWords = new List<string>();
         private List<string> UserAddedWords = new List<string>();
-        private string _password = "mypassword";
+        public string _password = "1234";
         private IntPtr _lastWindowHandle = IntPtr.Zero;
 
+        public string Password
+        {
+            get { return _password; }
+            set { _password = value; }
+        }
         public WordFilterHomePage()
         {
             InitializeComponent();
-            LoadDefaultWords(); // Charger les mots par défaut depuis un fichier
-            LoadUserAddedWords(); // Charger les mots ajoutés par l'utilisateur
+            LoadDefaultWords();
+            LoadUserAddedWords(); 
             _globalHook = Hook.GlobalEvents();
             _globalHook.KeyPress += OnKeyPress;
-
-            // Initialiser le ComboBox avec les mots ajoutés par l'utilisateur
             UpdateComboBox();
         }
 
@@ -115,11 +118,11 @@ namespace ExplicitWordMonitor.HomePage
 
         private void btnChangePassword_Click(object sender, RoutedEventArgs e)
         {
-            if (txtOldPassword.Password == _password)
+            if (txtOldPassword.Password == Password) // Utiliser la propriété Password pour comparer l'ancien mot de passe
             {
                 if (!string.IsNullOrWhiteSpace(txtNewPassword.Password))
                 {
-                    _password = txtNewPassword.Password;
+                    Password = txtNewPassword.Password; // Utiliser la propriété Password pour mettre à jour le mot de passe
                     System.Windows.MessageBox.Show("Password changed successfully!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
                     txtOldPassword.Clear();
                     txtNewPassword.Clear();
@@ -134,6 +137,7 @@ namespace ExplicitWordMonitor.HomePage
                 System.Windows.MessageBox.Show("Old password is incorrect.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+
 
         private void OnKeyPress(object sender, KeyPressEventArgs e)
         {
@@ -179,12 +183,19 @@ namespace ExplicitWordMonitor.HomePage
             }
         }
 
+
+
         private void CloseActiveApplication()
         {
             var activeWindowHandle = GetForegroundWindow();
             GetWindowThreadProcessId(activeWindowHandle, out uint processID);
 
             var process = Process.GetProcessById((int)processID);
+
+            if (process.ProcessName.Equals("ExplicitWordMonitor", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
             process.Kill();
         }
 
