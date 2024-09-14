@@ -1,5 +1,5 @@
 ﻿using ExplicitWordMonitor.HomePage;
-using System.IO;
+using ExplicitWordMonitor.ProxyFilter;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -8,7 +8,9 @@ namespace ExplicitWordMonitor
     public partial class MainWindow : Window
     {
         private WordFilterHomePage _homePage;
-        private string dontShowFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "dontShowAgain.txt");
+        private WebFilterProxy webFilterProxy;
+
+        private bool isClosing = false;
 
         public MainWindow()
         {
@@ -17,37 +19,34 @@ namespace ExplicitWordMonitor
             mainFrame.Navigate(_homePage);
             this.Closing += MainWindow_Closing;
 
-            bool dontShow = DontShowAgain();
-            // Hide the popup if the user has chosen "Don't show again"
-            if (dontShow)
-            {
-                infoPopup.IsOpen = false;
-            }
-        }
+            this.Closing += MainWindow_Closing;
 
-        private bool DontShowAgain()
-        {
-            return File.Exists(dontShowFilePath) && File.ReadAllText(dontShowFilePath) == "true";
-        }
+            // Start the proxy server
+            List<string> allBadWords = _homePage.GetAllBadWords();
+            webFilterProxy = new WebFilterProxy(allBadWords);
+            webFilterProxy.Start();
 
-        private void ClosePopup_Click(object sender, RoutedEventArgs e)
-        {
-            // Hide the popup
-            infoPopup.IsOpen = false;
-
-            // Save the "Don't show again" preference if checked
-            if (chkDontShowAgain.IsChecked == true)
-            {
-                File.WriteAllText(dontShowFilePath, "true");
-                MessageBox.Show("You won't see this popup again.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
+            // Subscribe to the event to update bad words list
+            _homePage.BadWordsListUpdated += UpdateBadWordsList;
         }
 
         private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            if (isClosing)
+            {
+                return;
+            }
+
             if (!AskForPassword())
             {
                 e.Cancel = true;
+            }
+            else
+            {
+                isClosing = true;
+
+                // Stop the proxy server
+                webFilterProxy.Stop();
             }
         }
 
@@ -90,6 +89,10 @@ namespace ExplicitWordMonitor
             passwordWindow.ShowDialog();
 
             return isPasswordCorrect;
+        }
+        private void UpdateBadWordsList(List<string> newBadWords)
+        {
+            webFilterProxy.UpdateBadWords(newBadWords);
         }
     }
 }

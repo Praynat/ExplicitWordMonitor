@@ -21,6 +21,8 @@ namespace ExplicitWordMonitor.HomePage
         private System.Timers.Timer _typingTimer;
         private const double TypingDelay = 1000;
         private readonly object _lock = new object();
+        private string dontShowFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "dontShowAgain.txt");
+        public event Action<List<string>> BadWordsListUpdated;
 
 
         public string Password
@@ -32,7 +34,7 @@ namespace ExplicitWordMonitor.HomePage
         {
             InitializeComponent();
             LoadDefaultWords();
-            LoadUserAddedWords(); 
+            LoadUserAddedWords();
             _globalHook = Hook.GlobalEvents();
             _globalHook.KeyPress += OnKeyPress;
             UpdateComboBox();
@@ -40,6 +42,31 @@ namespace ExplicitWordMonitor.HomePage
             _typingTimer = new System.Timers.Timer(TypingDelay);
             _typingTimer.Elapsed += TypingTimer_Elapsed;
             _typingTimer.AutoReset = false;
+
+            bool dontShow = DontShowAgain();
+            // Hide the popup if the user has chosen "Don't show again"
+            if (dontShow)
+            {
+                infoPopup.IsOpen = false;
+            }
+        }
+
+        private bool DontShowAgain()
+        {
+            return File.Exists(dontShowFilePath) && File.ReadAllText(dontShowFilePath) == "true";
+        }
+
+        private void ClosePopup_Click(object sender, RoutedEventArgs e)
+        {
+            // Hide the popup
+            infoPopup.IsOpen = false;
+
+            // Save the "Don't show again" preference if checked
+            if (chkDontShowAgain.IsChecked == true)
+            {
+                File.WriteAllText(dontShowFilePath, "true");
+                System.Windows.MessageBox.Show("You won't see this popup again.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
         }
 
 
@@ -84,7 +111,10 @@ namespace ExplicitWordMonitor.HomePage
         }
 
 
-
+        public List<string> GetAllBadWords()
+        {
+            return DefaultWords.Concat(UserAddedWords).ToList();
+        }
         private void btnAddWord_Click(object sender, RoutedEventArgs e)
         {
             if (!string.IsNullOrWhiteSpace(txtNewWord.Text) && !UserAddedWords.Contains(txtNewWord.Text))
@@ -92,14 +122,14 @@ namespace ExplicitWordMonitor.HomePage
                 UserAddedWords.Add(txtNewWord.Text);
                 System.Windows.MessageBox.Show("Word added successfully!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
                 txtNewWord.Clear();
-                UpdateComboBox(); // Mettre à jour le ComboBox
-
-                // Enregistrer le mot dans le fichier
+                UpdateComboBox(); 
                 SaveUserAddedWords();
+
+                BadWordsListUpdated?.Invoke(GetAllBadWords());
             }
             else
             {
-                System.Windows.MessageBox.Show("Please enter a unique, non-empty word.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show("Please enter a word (one you have never used).", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

@@ -4,6 +4,25 @@
       Title="Word Filter Home Page">
     <Viewbox>
         <StackPanel Background="White" Margin="20">
+            <!-- Popup definition -->
+            <Popup Name="infoPopup" Placement="Center" IsOpen="True" StaysOpen="False">
+                <Border Background="White" BorderBrush="Black" BorderThickness="1" Padding="10">
+                    <StackPanel Width="400">
+                        <TextBlock Text="Welcome to Explicit Word Monitor" FontSize="18" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,10">
+    This application monitors your typing in other applications. If you type an explicit word in any other app on your PC, this app will automatically close that application.
+    You cannot close this window unless you have the password. <Run FontWeight="Bold">The default password is '1234'</Run>, but you should change it.
+    The app comes with a preset list of explicit words in English, French, and Hebrew. You can also add any word that you would like to block.
+                        </TextBlock>
+
+                        <TextBlock Text="Example: Adding the word 'test' to the block list will close any app where you type the word 'test'." TextWrapping="Wrap" FontWeight="Bold" Margin="0,0,0,10"/>
+
+                        <CheckBox Name="chkDontShowAgain" Content="Don't show this message again" Margin="0,10,0,10"/>
+
+                        <Button Content="Close" Width="100" HorizontalAlignment="Center" Click="ClosePopup_Click"/>
+                    </StackPanel>
+                </Border>
+            </Popup>
             <!-- Section pour afficher la liste des mots explicites -->
             <StackPanel Margin="0,0,0,20">
                 <Label Content="Explicit Words List:" HorizontalContentAlignment="Center" FontSize="15" FontWeight="Bold"/>
